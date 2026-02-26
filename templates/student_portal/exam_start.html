@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-2">Pre-Exam Verification</h2>
+    <p class="mb-4">Exam: <strong>{{ exam.title }}</strong></p>
+    <p class="mb-3"><small><strong>Current server time:</strong> {{ current_time|date:"M d, Y h:i A T" }}</small></p>
+
+    <div class="bg-white border rounded p-4 mb-4">
+      <p><strong>Opens At:</strong> {{ exam.scheduled_at|date:"M d, Y h:i A T"|default:"Open now" }}</p>
+      <p><strong>Duration:</strong> {{ exam.duration_minutes }} minutes</p>
+      <p class="mb-3">Capture a live facial image to verify your identity before starting.</p>
+
+      <form method="post" enctype="multipart/form-data" id="face-verify-form">
+        {% csrf_token %}
+        <div class="alert alert-warning">
+          <strong>Proctoring Consent:</strong> By starting this exam, you consent to continuous camera and microphone
+          monitoring, browser-focus tracking, and AI-assisted proctoring logs throughout the exam period.
+        </div>
+        <div class="form-group">
+          <label class="d-block">Live Camera Feed</label>
+          <video
+            id="camera-preview"
+            class="border rounded w-100 mb-2"
+            style="max-width: 480px; background: #000;"
+            autoplay
+            playsinline
+            muted
+          ></video>
+          <img
+            id="capture-preview"
+            class="border rounded d-none mb-2"
+            style="max-width: 480px; width: 100%;"
+            alt="Captured face preview"
+          >
+          <small id="camera-status" class="form-text text-muted">Requesting camera access...</small>
+
+          <input type="file" class="d-none" id="face_probe" name="face_probe" accept="image/*">
+
+          <div class="mt-3">
+            <button type="button" id="capture-btn" class="btn btn-outline-primary" disabled>Capture Photo</button>
+            <button type="button" id="retake-btn" class="btn btn-outline-secondary d-none">Retake</button>
+          </div>
+        </div>
+        <div class="form-group form-check">
+          <input type="checkbox" class="form-check-input" id="proctor-consent" name="proctor_consent" value="1" required>
+          <label class="form-check-label" for="proctor-consent">I understand and agree to the proctoring policy for this exam.</label>
+        </div>
+        <button type="submit" id="verify-btn" class="btn btn-primary">Verify and Start</button>
+        <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    var form = document.getElementById("face-verify-form");
+    var video = document.getElementById("camera-preview");
+    var capturePreview = document.getElementById("capture-preview");
+    var status = document.getElementById("camera-status");
+    var captureBtn = document.getElementById("capture-btn");
+    var retakeBtn = document.getElementById("retake-btn");
+    var verifyBtn = document.getElementById("verify-btn");
+    var fileInput = document.getElementById("face_probe");
+    if (!form || !video || !capturePreview || !status || !captureBtn || !retakeBtn || !verifyBtn || !fileInput) {
+      return;
+    }
+
+    var stream = null;
+    var hasCapture = false;
+
+    function setStatus(message, isError) {
+      status.textContent = message;
+      status.classList.toggle("text-danger", !!isError);
+      status.classList.toggle("text-muted", !isError);
+    }
+
+    function stopStream() {
+      if (!stream) return;
+      stream.getTracks().forEach(function (track) { track.stop(); });
+      stream = null;
+    }
+
+    function dataTransferWithFile(file) {
+      var dt = new DataTransfer();
+      dt.items.add(file);
+      return dt;
+    }
+
+    function captureFrame() {
+      if (!stream || !video.videoWidth || !video.videoHeight) {
+        setStatus("Camera is not ready yet. Please wait and try again.", true);
+        return;
+      }
+
+      var canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(function (blob) {
+        if (!blob) {
+          setStatus("Failed to capture image. Please try again.", true);
+          return;
+        }
+
+        var file = new File([blob], "face_probe.jpg", { type: "image/jpeg" });
+        fileInput.files = dataTransferWithFile(file).files;
+
+        capturePreview.src = URL.createObjectURL(blob);
+        capturePreview.classList.remove("d-none");
+        video.classList.add("d-none");
+
+        hasCapture = true;
+        captureBtn.classList.add("d-none");
+        retakeBtn.classList.remove("d-none");
+        setStatus("Image captured. You can verify now or retake.");
+      }, "image/jpeg", 0.92);
+    }
+
+    function retake() {
+      hasCapture = false;
+      fileInput.value = "";
+      capturePreview.src = "";
+      capturePreview.classList.add("d-none");
+      video.classList.remove("d-none");
+      captureBtn.classList.remove("d-none");
+      retakeBtn.classList.add("d-none");
+      setStatus("Camera ready. Capture your face image.");
+    }
+
+    captureBtn.addEventListener("click", captureFrame);
+    retakeBtn.addEventListener("click", retake);
+
+    form.addEventListener("submit", function (event) {
+      if (!fileInput.files || fileInput.files.length === 0) {
+        event.preventDefault();
+        setStatus("Capture a photo (or upload one) before verifying.", true);
+      }
+    });
+
+    window.addEventListener("beforeunload", stopStream);
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus("This browser does not support camera capture.", true);
+      fileInput.classList.remove("d-none");
+      fileInput.classList.add("form-control");
+      captureBtn.disabled = true;
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+      .then(function (mediaStream) {
+        stream = mediaStream;
+        video.srcObject = mediaStream;
+        captureBtn.disabled = false;
+        setStatus("Camera ready. Capture your face image.");
+      })
+      .catch(function () {
+        setStatus("Unable to access camera. Please allow camera permission and reload.", true);
+        fileInput.classList.remove("d-none");
+        fileInput.classList.add("form-control");
+        captureBtn.disabled = true;
+      });
+  })();
+</script>
+{% endblock %}

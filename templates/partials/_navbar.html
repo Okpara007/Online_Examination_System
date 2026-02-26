@@ -1,0 +1,41 @@
+{% load static %}
+
+<header class="site-navbar py-4 js-sticky-header site-navbar-target" role="banner">
+        
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+            <div class="site-logo mr-auto w-25"><a href="{% url 'index'%}">Online Exam</a></div>
+
+            <div class="mx-auto text-center">
+                <nav class="site-navigation position-relative text-right" role="navigation">
+                <ul class="site-menu main-menu js-clone-nav mx-auto d-none d-lg-block  m-0 p-0">
+                    <li><a href="#home-section" class="nav-link">Home</a></li>
+                    <li><a href="#courses-section" class="nav-link">Features</a></li>
+                    <li><a href="#programs-section" class="nav-link">How it Works</a></li>
+                    <li><a href="#contact-section" class="nav-link">Contact</a></li>
+                </ul>
+                </nav>
+            </div>
+
+            <div class="ml-auto w-25">
+                <nav class="site-navigation position-relative text-right" role="navigation">
+                <ul class="site-menu main-menu js-clone-nav mr-auto d-none d-lg-block m-0 p-0">
+                    {% if user.is_authenticated %}
+                    {% if user.profile.role == 'teacher' %}
+                    <li><a href="{% url 'teacher_dashboard' %}" class="nav-link"><span>Dashboard</span></a></li>
+                    {% elif user.profile.role == 'student' %}
+                    <li><a href="{% url 'student_dashboard' %}" class="nav-link"><span>Dashboard</span></a></li>
+                    {% endif %}
+                    <li class="cta"><a href="{% url 'logout' %}" class="nav-link"><span>Logout</span></a></li>
+                    {% else %}
+                    <li><a href="{% url 'login' %}" class="nav-link"><span>Login</span></a></li>
+                    <li class="cta"><a href="{% url 'register' %}" class="nav-link"><span>Sign Up</span></a></li>
+                    {% endif %}
+                </ul>
+                </nav>
+                <a href="#" class="d-inline-block d-lg-none site-menu-toggle js-menu-toggle text-black float-right"><span class="icon-menu h3"></span></a>
+            </div>
+            </div>
+        </div>
+        
+        </header>

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-2">Questions: {{ exam.title }}</h2>
+    {% include 'teacher_portal/_nav.html' %}
+    <a class="btn btn-primary mb-3" href="{% url 'teacher_question_create' exam.id %}">Add Question</a>
+    <a class="btn btn-outline-secondary mb-3" href="{% url 'teacher_exam_list' %}">Back to Exams</a>
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Order</th><th>Question</th><th>Type</th><th>Marks</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for question in questions %}
+          <tr>
+            <td>{{ question.order }}</td>
+            <td>{{ question.text|truncatechars:90 }}</td>
+            <td>{{ question.get_question_type_display }}</td>
+            <td>{{ question.marks }}</td>
+            <td>
+              <a href="{% url 'teacher_question_edit' exam.id question.id %}">Edit</a> |
+              <a href="{% url 'teacher_question_delete' exam.id question.id %}">Delete</a>
+              {% if question.question_type == 'mcq' %}
+              | <a href="{% url 'teacher_choice_list' exam.id question.id %}">Choices</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">No questions added yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

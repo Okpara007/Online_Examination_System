@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">Performance Analytics</h2>
+    {% include 'teacher_portal/_nav.html' %}
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Exam</th><th>Enrolled</th><th>Submissions</th><th>Avg Score</th><th>Flagged Events</th></tr>
+        </thead>
+        <tbody>
+          {% for row in exam_stats %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.enrolled_count }}</td>
+            <td>{{ row.submissions }}</td>
+            <td>{{ row.avg_score|default:0|floatformat:2 }}</td>
+            <td>{{ row.flagged_count }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">No analytics yet. Create exams and collect results first.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-3">
+      <a href="{% url 'teacher_export_results_csv' %}" class="btn btn-outline-secondary mr-2">Download Result Report (CSV)</a>
+      <a href="{% url 'teacher_export_proctoring_csv' %}" class="btn btn-outline-secondary">Download Proctoring Log (CSV)</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+        <h2 class="mb-4">Create Account</h2>
+        <p class="mb-4">Register as a teacher or student.</p>
+
+        {% if form.errors %}
+        <div class="alert alert-danger">
+          Please fix the highlighted errors.
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+
+          <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% for error in form.username.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            {{ form.email }}
+            {% for error in form.email.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.role.id_for_label }}">Register as</label>
+            {{ form.role }}
+            {% for error in form.role.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+          </div>
+
+          <div class="form-group" id="face-image-group">
+            <label for="{{ form.face_image.id_for_label }}">Facial Image (Student only)</label>
+            {{ form.face_image }}
+            {% for error in form.face_image.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+            <small class="form-text text-muted">Used for identity checks before exams.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.password1.id_for_label }}">Password</label>
+            <div class="password-field">
+              {{ form.password1 }}
+              <button
+                type="button"
+                class="toggle-password"
+                data-target="{{ form.password1.id_for_label }}"
+              >Show</button>
+            </div>
+            {% for error in form.password1.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+          </div>
+
+          <div class="form-group">
+            <label for="{{ form.password2.id_for_label }}">Confirm password</label>
+            <div class="password-field">
+              {{ form.password2 }}
+              <button
+                type="button"
+                class="toggle-password"
+                data-target="{{ form.password2.id_for_label }}"
+              >Show</button>
+            </div>
+            {% for error in form.password2.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-pill px-4 py-2">Sign Up</button>
+        </form>
+
+        <p class="mt-3 mb-0">
+          Already have an account? <a href="{% url 'login' %}">Login</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+  .password-field {
+    position: relative;
+  }
+  .password-field .form-control {
+    padding-right: 70px;
+  }
+  .password-field .toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    padding: 0;
+    line-height: 1;
+    color: #6f42c1;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .password-field .toggle-password:focus {
+    outline: none;
+  }
+</style>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var roleField = document.getElementById("{{ form.role.id_for_label }}");
+    var faceGroup = document.getElementById("face-image-group");
+    function syncFaceFieldVisibility() {
+      if (!roleField || !faceGroup) return;
+      faceGroup.style.display = roleField.value === "student" ? "block" : "none";
+    }
+
+    if (roleField) {
+      roleField.addEventListener("change", syncFaceFieldVisibility);
+    }
+    syncFaceFieldVisibility();
+
+    var toggles = document.querySelectorAll(".toggle-password");
+    toggles.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var targetId = button.getAttribute("data-target");
+        var input = document.getElementById(targetId);
+        if (!input) return;
+        var show = input.type === "password";
+        input.type = show ? "text" : "password";
+        button.textContent = show ? "Hide" : "Show";
+      });
+    });
+  });
+</script>
+{% endblock %}

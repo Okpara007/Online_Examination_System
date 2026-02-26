@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-0">{{ exam.title }}</h2>
+      <div class="alert alert-info mb-0 py-2 px-3">Time Left: <strong id="exam-timer">--:--</strong></div>
+    </div>
+
+    <div class="row mb-4">
+      <div class="col-lg-7 mb-3 mb-lg-0">
+        <div class="bg-white border rounded p-3 h-100">
+          <h6 class="mb-3">Live Proctoring Status</h6>
+          <div class="mb-2">
+            <span class="badge badge-info">Warnings: <span id="warning-count">{{ session.warning_count }}</span>/3</span>
+          </div>
+          <ul class="mb-0 pl-3" id="proctor-status-list">
+            <li>Initializing proctoring systems...</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="bg-white border rounded p-3">
+          <h6 class="mb-3">Camera Monitor</h6>
+          <video
+            id="proctor-video"
+            class="border rounded w-100"
+            style="background: #000; max-height: 260px; object-fit: cover;"
+            autoplay
+            playsinline
+            muted
+          ></video>
+        </div>
+      </div>
+    </div>
+
+    <form id="exam-form" method="post" action="{% url 'student_submit_exam' exam.id %}" class="bg-white p-4 border rounded">
+      {% csrf_token %}
+      <input type="hidden" name="auto_submit" id="auto-submit" value="0">
+
+      {% for question in questions %}
+      <div class="mb-4 pb-3 border-bottom">
+        <h5>Q{{ question.order }}. {{ question.text }}</h5>
+        <p><small>Marks: {{ question.marks }}</small></p>
+
+        {% if question.question_type == 'mcq' %}
+          {% for choice in question.choices.all %}
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="question_{{ question.id }}_choice" id="choice_{{ choice.id }}" value="{{ choice.id }}">
+            <label class="form-check-label" for="choice_{{ choice.id }}">{{ choice.text }}</label>
+          </div>
+          {% endfor %}
+        {% else %}
+          <textarea class="form-control" rows="3" name="question_{{ question.id }}_theory" placeholder="Enter your answer"></textarea>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <button type="submit" class="btn btn-success">Submit Exam</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var seconds = {{ remaining_seconds }};
+    var timer = document.getElementById("exam-timer");
+    var form = document.getElementById("exam-form");
+    var autoSubmit = document.getElementById("auto-submit");
+    var warningCountEl = document.getElementById("warning-count");
+    var statusList = document.getElementById("proctor-status-list");
+    var video = document.getElementById("proctor-video");
+    var csrfTokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    var stream = null;
+    var objectModel = null;
+    var faceChecksEnabled = false;
+    var phoneChecksEnabled = false;
+    var proctoringActive = true;
+    var eventState = {};
+
+    var severityLevel = { low: 1, medium: 2, high: 3 };
+    var eventPolicy = {
+      tab_hidden: { base: "medium", cooldownMs: 20000, detail: "Student switched away from exam tab" },
+      window_blur: { base: "medium", cooldownMs: 20000, detail: "Browser window lost focus" },
+      no_face: { base: "low", cooldownMs: 12000, detail: "No face detected in frame" },
+      multiple_faces: { base: "high", cooldownMs: 5000, detail: "Multiple faces detected in frame" },
+      looking_away: { base: "low", cooldownMs: 10000, detail: "Student appears to be looking away" },
+      phone_detected: { base: "high", cooldownMs: 4000, detail: "Phone detected in camera frame" },
+      high_noise: { base: "low", cooldownMs: 10000, detail: "High ambient noise detected" },
+      camera_unavailable: { base: "high", cooldownMs: 15000, detail: "Camera permission denied/unavailable" },
+      microphone_unavailable: { base: "medium", cooldownMs: 20000, detail: "Microphone unavailable" }
+    };
+
+    function renderTime() {
+      var mins = Math.floor(seconds / 60);
+      var secs = seconds % 60;
+      timer.textContent = String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+    }
+
+    function pushStatus(message) {
+      if (!statusList) return;
+      var row = document.createElement("li");
+      row.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+      statusList.prepend(row);
+      while (statusList.children.length > 8) {
+        statusList.removeChild(statusList.lastChild);
+      }
+    }
+
+    function severityByLevel(level) {
+      if (level >= 3) return "high";
+      if (level === 2) return "medium";
+      return "low";
+    }
+
+    function escalateSeverity(baseSeverity, repeatCount) {
+      var level = severityLevel[baseSeverity] || 1;
+      if (repeatCount >= 2) level += 1;
+      if (repeatCount >= 4) level += 1;
+      return severityByLevel(Math.min(level, 3));
+    }
+
+    function sendProctorEvent(eventType, severity, details) {
+      var body = new URLSearchParams();
+      body.append("event_type", eventType);
+      body.append("severity", severity || "low");
+      body.append("details", details || "");
+      body.append("flagged", severity === "high" || severity === "medium" ? "1" : "0");
+
+      fetch("{% url 'student_proctor_event' exam.id %}", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfTokenInput ? csrfTokenInput.value : "",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: body.toString()
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data && typeof data.warning_count !== "undefined" && warningCountEl) {
+          warningCountEl.textContent = String(data.warning_count);
+        }
+        if (data && data.force_submit) {
+          pushStatus("Warning limit reached. Auto-submitting exam.");
+          autoSubmit.value = "1";
+          form.submit();
+        }
+      }).catch(function () {});
+    }
+
+    function reportEvent(eventType, customDetails) {
+      var policy = eventPolicy[eventType];
+      if (!policy) return;
+      var now = Date.now();
+      var state = eventState[eventType] || { count: 0, lastSentAt: 0 };
+      if (now - state.lastSentAt < policy.cooldownMs) return;
+
+      state.count += 1;
+      state.lastSentAt = now;
+      eventState[eventType] = state;
+
+      var severity = escalateSeverity(policy.base, state.count);
+      var details = customDetails || policy.detail;
+      pushStatus(eventType + " -> " + severity.toUpperCase() + " (" + details + ")");
+      sendProctorEvent(eventType, severity, details + " | repeats=" + state.count);
+    }
+
+    function stopStream() {
+      if (!stream) return;
+      stream.getTracks().forEach(function (track) { track.stop(); });
+      stream = null;
+    }
+
+    function submitNow() {
+      autoSubmit.value = "1";
+      form.submit();
+    }
+
+    function estimateLookingAway(landmarks) {
+      if (!landmarks) return false;
+      var leftEye = landmarks.getLeftEye();
+      var rightEye = landmarks.getRightEye();
+      var nose = landmarks.getNose();
+      if (!leftEye || !rightEye || !nose || !leftEye.length || !rightEye.length || !nose.length) return false;
+
+      var left = leftEye.reduce(function (sum, p) { return sum + p.x; }, 0) / leftEye.length;
+      var right = rightEye.reduce(function (sum, p) { return sum + p.x; }, 0) / rightEye.length;
+      var noseX = nose.reduce(function (sum, p) { return sum + p.x; }, 0) / nose.length;
+      var eyeCenter = (left + right) / 2;
+      var eyeDistance = Math.max(1, Math.abs(right - left));
+      var yawRatio = Math.abs(noseX - eyeCenter) / eyeDistance;
+      return yawRatio > 0.18;
+    }
+
+    async function runFaceChecks() {
+      if (!window.faceapi || !faceChecksEnabled || !video || !proctoringActive || video.readyState < 2) return;
+      try {
+        var detections = await window.faceapi
+          .detectAllFaces(video, new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+          .withFaceLandmarks();
+
+        if (!detections || detections.length === 0) {
+          reportEvent("no_face");
+          return;
+        }
+        if (detections.length > 1) {
+          reportEvent("multiple_faces");
+          return;
+        }
+        if (estimateLookingAway(detections[0].landmarks)) {
+          reportEvent("looking_away");
+        }
+      } catch (error) {
+        faceChecksEnabled = false;
+        pushStatus("Face checks paused due to model error.");
+      }
+    }
+
+    async function runPhoneChecks() {
+      if (!phoneChecksEnabled || !objectModel || !video || !proctoringActive || video.readyState < 2) return;
+      try {
+        var predictions = await objectModel.detect(video);
+        var hasPhone = predictions.some(function (pred) {
+          return pred.class === "cell phone" && pred.score >= 0.5;
+        });
+        if (hasPhone) {
+          reportEvent("phone_detected");
+        }
+      } catch (error) {
+        phoneChecksEnabled = false;
+        pushStatus("Phone detection paused due to model error.");
+      }
+    }
+
+    function setupNoiseDetection(audioTrack) {
+      if (!audioTrack) {
+        reportEvent("microphone_unavailable");
+        return;
+      }
+      try {
+        var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        var sourceStream = new MediaStream([audioTrack]);
+        var source = audioContext.createMediaStreamSource(sourceStream);
+        var analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        source.connect(analyser);
+        var data = new Uint8Array(analyser.frequencyBinCount);
+
+        setInterval(function () {
+          if (!proctoringActive) return;
+          analyser.getByteFrequencyData(data);
+          var avg = data.reduce(function (sum, val) { return sum + val; }, 0) / data.length;
+          if (avg > 80) {
+            reportEvent("high_noise", "Average microphone energy=" + avg.toFixed(1));
+          }
+        }, 3000);
+      } catch (error) {
+        reportEvent("microphone_unavailable");
+      }
+    }
+
+    async function initProctoring() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        reportEvent("camera_unavailable", "Browser does not support media capture.");
+        return;
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: { echoCancellation: true, noiseSuppression: true }
+        });
+        video.srcObject = stream;
+        pushStatus("Camera and microphone connected.");
+      } catch (error) {
+        reportEvent("camera_unavailable");
+        return;
+      }
+
+      try {
+        await window.faceapi.nets.tinyFaceDetector.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights");
+        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights");
+        faceChecksEnabled = true;
+        pushStatus("Face models loaded.");
+      } catch (error) {
+        pushStatus("Face model load failed. Face checks disabled.");
+      }
+
+      try {
+        objectModel = await cocoSsd.load({ base: "mobilenet_v2" });
+        phoneChecksEnabled = true;
+        pushStatus("Phone detection model loaded.");
+      } catch (error) {
+        pushStatus("Phone detection model unavailable.");
+      }
+
+      var audioTrack = stream.getAudioTracks()[0];
+      setupNoiseDetection(audioTrack);
+      setInterval(runFaceChecks, 5000);
+      setInterval(runPhoneChecks, 4000);
+      pushStatus("Proctoring active.");
+    }
+
+    renderTime();
+    var interval = setInterval(function () {
+      seconds -= 1;
+      renderTime();
+      if (seconds <= 0) {
+        clearInterval(interval);
+        submitNow();
+      }
+    }, 1000);
+
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) {
+        reportEvent("tab_hidden");
+      }
+    });
+
+    window.addEventListener("blur", function () {
+      reportEvent("window_blur");
+    });
+
+    window.addEventListener("beforeunload", function () {
+      proctoringActive = false;
+      stopStream();
+    });
+
+    form.addEventListener("submit", function () {
+      proctoringActive = false;
+      stopStream();
+    });
+
+    initProctoring();
+  });
+</script>
+{% endblock %}

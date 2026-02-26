@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">AI Proctoring Logs</h2>
+    {% include 'teacher_portal/_nav.html' %}
+
+    <form method="get" class="form-inline bg-white p-3 border rounded mb-3">
+      <label class="mr-2" for="exam">Exam:</label>
+      <select class="form-control mr-2" id="exam" name="exam">
+        <option value="">All Exams</option>
+        {% for exam in exams %}
+        <option value="{{ exam.id }}" {% if selected_exam == exam.id|stringformat:'s' %}selected{% endif %}>{{ exam.title }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-check mr-2">
+        <input class="form-check-input" type="checkbox" id="flagged" name="flagged" value="1" {% if flagged_only %}checked{% endif %}>
+        <label class="form-check-label" for="flagged">Flagged only</label>
+      </div>
+      <button class="btn btn-primary" type="submit">Filter</button>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead><tr><th>Exam</th><th>Student</th><th>Event</th><th>Severity</th><th>Flagged</th><th>Time</th></tr></thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td>{{ log.exam.title }}</td>
+            <td>{% if log.student %}{{ log.student.username }}{% else %}-{% endif %}</td>
+            <td>{{ log.event_type }}</td>
+            <td>{{ log.get_severity_display }}</td>
+            <td>{% if log.is_flagged %}Yes{% else %}No{% endif %}</td>
+            <td>{{ log.created_at }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6">No proctoring events found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

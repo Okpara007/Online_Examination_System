@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-2">Choices for Question {{ question.order }} ({{ exam.title }})</h2>
+    {% include 'teacher_portal/_nav.html' %}
+    <a class="btn btn-primary mb-3" href="{% url 'teacher_choice_create' exam.id question.id %}">Add Choice</a>
+    <a class="btn btn-outline-secondary mb-3" href="{% url 'teacher_question_list' exam.id %}">Back to Questions</a>
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Choice</th><th>Correct</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for choice in choices %}
+          <tr>
+            <td>{{ choice.text }}</td>
+            <td>{% if choice.is_correct %}Yes{% else %}No{% endif %}</td>
+            <td>
+              <a href="{% url 'teacher_choice_edit' exam.id question.id choice.id %}">Edit</a> |
+              <a href="{% url 'teacher_choice_delete' exam.id question.id choice.id %}">Delete</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">No choices added yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

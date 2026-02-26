@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">Log Proctoring Event - {{ exam.title }}</h2>
+    {% include 'teacher_portal/_nav.html' %}
+    <form method="post" class="bg-white p-4 border rounded">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Save Log</button>
+      <a class="btn btn-outline-secondary" href="{% url 'teacher_exam_list' %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+<nav class="bg-white border-bottom shadow-sm" style="position: sticky; top: 0; z-index: 1030;">
+  <div class="container d-flex justify-content-between align-items-center py-3">
+    <a href="{% url 'index' %}" class="text-dark font-weight-bold h5 mb-0 text-decoration-none">Online Exam</a>
+    <div class="d-flex align-items-center">
+      <div
+        class="d-inline-flex align-items-center justify-content-center rounded-circle text-white font-weight-bold mr-3"
+        style="width: 40px; height: 40px; background-color: #6f42c1;"
+        title="{{ request.user.username }}"
+      >
+        {% if request.user.first_name and request.user.last_name %}
+          {{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}
+        {% elif request.user.first_name %}
+          {{ request.user.first_name|first|upper }}
+        {% else %}
+          {{ request.user.username|first|upper }}
+        {% endif %}
+      </div>
+      <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger">Logout</a>
+    </div>
+  </div>
+</nav>

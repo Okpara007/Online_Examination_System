@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">{{ page_title }} - {{ exam.title }}</h2>
+    {% include 'teacher_portal/_nav.html' %}
+    <form method="post" class="bg-white p-4 border rounded">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="{{ form.text.id_for_label }}">Question</label>
+        {{ form.text }}
+        {% for error in form.text.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.question_type.id_for_label }}">Question Type</label>
+        {{ form.question_type }}
+        {% for error in form.question_type.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+      </div>
+      <div class="form-group">
+        <label for="{{ form.marks.id_for_label }}">Marks</label>
+        {{ form.marks }}
+        {% for error in form.marks.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+      </div>
+      <p class="text-muted"><small>Question order is assigned automatically in sequence.</small></p>
+
+      <div id="mcq-fields">
+        {{ form.options }} 
+        <div class="form-group">
+          <label>Multiple Choice Options</label>
+          <input type="text" id="option-input" class="form-control mb-2" placeholder="Enter option text">
+          <button type="button" id="add-option-btn" class="btn btn-outline-primary mb-2">Add</button>
+          <ul id="options-list" class="list-group"></ul>
+          {% for error in form.options.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+        </div>
+        <div class="form-group">
+          <label for="{{ form.correct_option.id_for_label }}">Correct Option</label>
+          {{ form.correct_option }}
+          {% for error in form.correct_option.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+        </div>
+      </div>
+
+      <div id="theory-fields">
+        <div class="form-group">
+          <label for="{{ form.correct_answer.id_for_label }}">Correct Answer (Theory)</label>
+          {{ form.correct_answer }}
+          {% for error in form.correct_answer.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
+        </div>
+      </div>
+
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn btn-outline-secondary" href="{% url 'teacher_question_list' exam.id %}">Cancel</a>
+    </form>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var typeField = document.getElementById("{{ form.question_type.id_for_label }}");
+    var hiddenOptionsField = document.getElementById("{{ form.options.id_for_label }}");
+    var correctOptionField = document.getElementById("{{ form.correct_option.id_for_label }}");
+    var optionsList = document.getElementById("options-list");
+    var optionInput = document.getElementById("option-input");
+    var addOptionBtn = document.getElementById("add-option-btn");
+    var mcqFields = document.getElementById("mcq-fields");
+    var theoryFields = document.getElementById("theory-fields");
+    var options = [];
+
+    function toggleQuestionTypeFields() {
+      var isMcq = typeField.value === "mcq";
+      mcqFields.style.display = isMcq ? "block" : "none";
+      theoryFields.style.display = isMcq ? "none" : "block";
+    }
+
+    function syncHiddenOptions() {
+      hiddenOptionsField.value = options.join("\n");
+    }
+
+    function renderCorrectOptionDropdown(previousSelection) {
+      var selected = typeof previousSelection === "string" ? previousSelection : correctOptionField.value;
+      correctOptionField.innerHTML = "";
+      var placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select correct option";
+      correctOptionField.appendChild(placeholder);
+
+      options.forEach(function (opt, idx) {
+        var optionEl = document.createElement("option");
+        optionEl.value = String(idx);
+        optionEl.textContent = "Option " + (idx + 1) + ": " + opt;
+        if (selected === String(idx)) {
+          optionEl.selected = true;
+        }
+        correctOptionField.appendChild(optionEl);
+      });
+    }
+
+    function renderOptions() {
+      optionsList.innerHTML = "";
+      options.forEach(function (opt, idx) {
+        var li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.innerHTML = "<span><strong>Option " + (idx + 1) + ":</strong> " + opt + "</span>";
+
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn btn-sm btn-outline-danger";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", function () {
+          var selected = correctOptionField.value;
+          options.splice(idx, 1);
+          syncHiddenOptions();
+          renderOptions();
+          if (selected !== "") {
+            var selectedIdx = parseInt(selected, 10);
+            if (selectedIdx === idx) {
+              renderCorrectOptionDropdown("");
+            } else if (selectedIdx > idx) {
+              renderCorrectOptionDropdown(String(selectedIdx - 1));
+            } else {
+              renderCorrectOptionDropdown(String(selectedIdx));
+            }
+          } else {
+            renderCorrectOptionDropdown("");
+          }
+        });
+
+        li.appendChild(removeBtn);
+        optionsList.appendChild(li);
+      });
+      renderCorrectOptionDropdown(correctOptionField.value);
+    }
+
+    function addOption() {
+      var value = optionInput.value.trim();
+      if (!value) {
+        return;
+      }
+      options.push(value);
+      optionInput.value = "";
+      syncHiddenOptions();
+      renderOptions();
+      optionInput.focus();
+    }
+
+    if (hiddenOptionsField.value.trim()) {
+      options = hiddenOptionsField.value.split("\n").map(function (line) { return line.trim(); }).filter(Boolean);
+      renderOptions();
+    } else {
+      renderCorrectOptionDropdown(correctOptionField.value);
+    }
+
+    addOptionBtn.addEventListener("click", addOption);
+    optionInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addOption();
+      }
+    });
+
+    if (typeField) {
+      typeField.addEventListener("change", toggleQuestionTypeFields);
+      toggleQuestionTypeFields();
+    }
+  });
+</script>
+{% endblock %}

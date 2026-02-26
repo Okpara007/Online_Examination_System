@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-2">Enroll Students: {{ exam.title }}</h2>
+    {% include 'teacher_portal/_nav.html' %}
+
+    <div class="bg-white p-4 border rounded mb-4">
+      <h5>Add Student</h5>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn btn-primary" type="submit">Enroll</button>
+      </form>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Student</th><th>Enrolled At</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for enrollment in enrollments %}
+          <tr>
+            <td>{{ enrollment.student.username }}</td>
+            <td>{{ enrollment.enrolled_at }}</td>
+            <td><a href="{% url 'teacher_enrollment_delete' exam.id enrollment.id %}">Remove</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">No students enrolled yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

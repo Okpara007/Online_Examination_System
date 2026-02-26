@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="intro-section" id="home-section">
+      
+      <div class="slide-1" data-stellar-background-ratio="0.5">
+        <div class="container">
+          <div class="row align-items-center">
+            <div class="col-12">
+              <div class="row align-items-center">
+                <div class="col-lg-6 mb-4">
+                  <h1  data-aos="fade-up" data-aos-delay="100">Online Examination System</h1>
+                  <p class="mb-4"  data-aos="fade-up" data-aos-delay="200">Conduct secure, scalable, and real-time online examinations for institutions, lecturers, and students.</p>
+                  <p data-aos="fade-up" data-aos-delay="300"><a href="#" class="btn btn-primary py-3 px-5 btn-pill">Get Started</a></p>
+
+                </div>
+
+                <!-- <div class="col-lg-5 ml-auto" data-aos="fade-up" data-aos-delay="500">
+                  <img style="height: 300px; width: 900px" src="{% static 'images/online-survey-3d-render.jpg' %}" alt="Online survey illustration" class="img-fluid rounded hero-side-image">
+                </div> -->
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div class="site-section courses-title" id="courses-section">
+      <div class="container">
+        <div class="row mb-5 justify-content-center">
+          <div class="col-lg-7 text-center" data-aos="fade-up" data-aos-delay="">
+            <h2 class="section-title">Core Features</h2>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="site-section courses-entry-wrap"  data-aos="fade-up" data-aos-delay="100">
+      <div class="container">
+        <div class="row courses-grid">
+          <div class="col-12 col-md-6 col-lg-4 d-flex">
+            <div class="course bg-white h-100 align-self-stretch w-100">
+              <figure class="m-0 course-image-wrap">
+                <a href="course-single.html"><img src="{% static 'images/img_4.jpg' %}" alt="Image" class="img-fluid course-image"></a>
+              </figure>
+              <div class="course-inner-text py-4 px-4">
+                <!-- <span class="course-price">$20</span>
+                <div class="meta"><span class="icon-clock-o"></span>4 Lessons / 12 week</div> -->
+                <h3><a href="#">Create & Manage Exams</a></h3>
+                <p>Lecturers can create exams, set duration, manage questions and monitor submissions through a centralized and easy-to-use dashboard interface.</p>
+              </div>
+              <!-- <div class="d-flex border-top stats">
+                <div class="py-3 px-4"><span class="icon-users"></span> 2,193 students</div>
+                <div class="py-3 px-4 w-25 ml-auto border-left"><span class="icon-chat"></span> 2</div>
+              </div> -->
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4 d-flex">
+            <div class="course bg-white h-100 align-self-stretch w-100">
+              <figure class="m-0 course-image-wrap">
+                <a href="course-single.html"><img src="{% static 'images/img_5.jpg' %}" alt="Image" class="img-fluid course-image"></a>
+              </figure>
+              <div class="course-inner-text py-4 px-4">
+                <!-- <span class="course-price">$99</span>
+                <div class="meta"><span class="icon-clock-o"></span>4 Lessons / 12 week</div> -->
+                <h3><a href="#">Secure Authentication</a></h3>
+                <p>The system provides secure role-based authentication, protected exam sessions, encrypted data handling, and structured access management for all users.</p>
+              </div>
+              <!-- <div class="d-flex border-top stats">
+                <div class="py-3 px-4"><span class="icon-users"></span> 2,193 students</div>
+                <div class="py-3 px-4 w-25 ml-auto border-left"><span class="icon-chat"></span> 2</div>
+              </div> -->
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-lg-4 d-flex">
+            <div class="course bg-white h-100 align-self-stretch w-100">
+              <figure class="m-0 course-image-wrap">
+                <a href="course-single.html"><img src="{% static 'images/img_6.jpg' %}" alt="Image" class="img-fluid course-image"></a>
+              </figure>
+              <div class="course-inner-text py-4 px-4">
+                <!-- <span class="course-price">$99</span>
+                <div class="meta"><span class="icon-clock-o"></span>4 Lessons / 12 week</div> -->
+                <h3><a href="#">Instant Results</a></h3>
+                <p>Results are generated instantly with automatic grading, performance analytics, detailed feedback, score breakdowns, and structured reporting for academic evaluation and tracking.</p>
+              </div>
+              <!-- <div class="d-flex border-top stats">
+                <div class="py-3 px-4"><span class="icon-users"></span> 2,193 students</div>
+                <div class="py-3 px-4 w-25 ml-auto border-left"><span class="icon-chat"></span> 2</div>
+              </div> -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="site-section" id="programs-section">
+      <div class="container">
+        <div class="row mb-5 justify-content-center">
+          <div class="col-lg-7 text-center"  data-aos="fade-up" data-aos-delay="">
+            <h2 class="section-title">How It Works</h2>
+            <p>Set up your exam, monitor students in real time, and publish results with just a few clicks.</p>
+          </div>
+        </div>
+        <div class="row mb-5 align-items-center">
+          <div class="col-lg-7 mb-5" data-aos="fade-up" data-aos-delay="100">
+            <img src="{% static 'images/undraw_youtube_tutorial.svg' %}" alt="Image" class="img-fluid">
+          </div>
+          <div class="col-lg-4 ml-auto" data-aos="fade-up" data-aos-delay="200">
+            <h2 class="text-black mb-4">Step 1: Create and Configure Exam</h2>
+            <p class="mb-4">Teachers create classes, add questions, set exam duration, and assign exams to students.</p>
+
+            <div class="d-flex align-items-center custom-icon-wrap mb-3">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-graduation-cap"></span></span>
+              <div><h3 class="m-0">Build Question Bank Fast</h3></div>
+            </div>
+
+            <div class="d-flex align-items-center custom-icon-wrap">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-university"></span></span>
+              <div><h3 class="m-0">Control Schedule and Access</h3></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="row mb-5 align-items-center">
+          <div class="col-lg-7 mb-5 order-1 order-lg-2" data-aos="fade-up" data-aos-delay="100">
+            <img src="{% static 'images/undraw_teaching.svg' %}" alt="Image" class="img-fluid">
+          </div>
+          <div class="col-lg-4 mr-auto order-2 order-lg-1" data-aos="fade-up" data-aos-delay="200">
+            <h2 class="text-black mb-4">Step 2: Students Take Exam</h2>
+            <p class="mb-4">Students complete the exam online while teachers track participation and progress.</p>
+
+            <div class="d-flex align-items-center custom-icon-wrap mb-3">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-graduation-cap"></span></span>
+              <div><h3 class="m-0">Live Exam Monitoring Dashboard</h3></div>
+            </div>
+
+            <div class="d-flex align-items-center custom-icon-wrap">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-university"></span></span>
+              <div><h3 class="m-0">Secure Timed Assessment Flow</h3></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="row mb-5 align-items-center">
+          <div class="col-lg-7 mb-5" data-aos="fade-up" data-aos-delay="100">
+            <img src="{% static 'images/undraw_teacher.svg' %}" alt="Image" class="img-fluid">
+          </div>
+          <div class="col-lg-4 ml-auto" data-aos="fade-up" data-aos-delay="200">
+            <h2 class="text-black mb-4">Step 3: Review and Publish Results</h2>
+            <p class="mb-4">Teachers review performance analytics, publish results, and provide feedback to students.</p>
+
+            <div class="d-flex align-items-center custom-icon-wrap mb-3">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-graduation-cap"></span></span>
+              <div><h3 class="m-0">Auto-Grading and Result Reports</h3></div>
+            </div>
+
+            <div class="d-flex align-items-center custom-icon-wrap">
+              <span class="custom-icon-inner mr-3"><span class="icon icon-university"></span></span>
+              <div><h3 class="m-0">Performance Insights Per Student</h3></div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- <div class="site-section" id="teachers-section">
+      <div class="container">
+
+        <div class="row mb-5 justify-content-center">
+          <div class="col-lg-7 mb-5 text-center"  data-aos="fade-up" data-aos-delay="">
+            <h2 class="section-title">Our Teachers</h2>
+            <p class="mb-5">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Magnam repellat aut neque! Doloribus sunt non aut reiciendis, vel recusandae obcaecati hic dicta repudiandae in quas quibusdam ullam, illum sed veniam!</p>
+          </div>
+        </div>
+
+        <div class="row">
+
+          <div class="col-md-6 col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="100">
+            <div class="teacher text-center">
+              <img src="{% static 'images/person_1.jpg' %}" alt="Image" class="img-fluid rounded-circle mx-auto mb-4">
+              <div class="py-2">
+                <h3 class="text-black">Benjamin Stone</h3>
+                <p class="position">Physics Teacher</p>
+                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Porro eius suscipit delectus enim iusto tempora, adipisci at provident.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="200">
+            <div class="teacher text-center">
+              <img src="{% static 'images/person_2.jpg' %}" alt="Image" class="img-fluid rounded-circle mx-auto mb-4">
+              <div class="py-2">
+                <h3 class="text-black">Katleen Stone</h3>
+                <p class="position">Physics Teacher</p>
+                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Porro eius suscipit delectus enim iusto tempora, adipisci at provident.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-4 mb-4" data-aos="fade-up" data-aos-delay="300">
+            <div class="teacher text-center">
+              <img src="{% static 'images/person_3.jpg' %}" alt="Image" class="img-fluid rounded-circle mx-auto mb-4">
+              <div class="py-2">
+                <h3 class="text-black">Sadie White</h3>
+                <p class="position">Physics Teacher</p>
+                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Porro eius suscipit delectus enim iusto tempora, adipisci at provident.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div> -->
+
+    <div class="site-section bg-image overlay hero-bg-image">
+      <div class="container">
+        <div class="row justify-content-center align-items-center">
+          <div class="col-md-8 text-center testimony mb-5 mt-5">
+            <!-- <img src="{% static 'images/person_4.jpg' %}" alt="Image" class="img-fluid mb-4 rounded-circle"> -->
+            <!-- <h3 class="mb-4">Jerome Jensen</h3>
+            <blockquote>
+              <p>&ldquo; Lorem ipsum dolor sit amet consectetur adipisicing elit. Rerum rem soluta sit eius necessitatibus voluptate excepturi beatae ad eveniet sapiente impedit quae modi quo provident odit molestias! Rem reprehenderit assumenda &rdquo;</p>
+            </blockquote> -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="site-section pb-0">
+
+      <div class="future-blobs">
+        <div class="blob_2">
+          <img src="{% static 'images/blob_2.svg' %}" alt="Image">
+        </div>
+        <div class="blob_1">
+          <img src="{% static 'images/blob_1.svg' %}" alt="Image">
+        </div>
+      </div>
+      <div class="container">
+        <div class="row mb-5 justify-content-center" data-aos="fade-up" data-aos-delay="">
+          <div class="col-lg-7 text-center">
+            <h2 class="section-title">Why Choose Our Online Examination System</h2>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-lg-4 ml-auto align-self-start"  data-aos="fade-up" data-aos-delay="100">
+
+            <div class="p-4 rounded bg-white why-choose-us-box">
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light mb-3">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-graduation-cap"></span></span></div>
+                <div><h3 class="m-0">Create and Schedule Exams in Minutes</h3></div>
+              </div>
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light mb-3">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-university"></span></span></div>
+                <div><h3 class="m-0">Secure Student Authentication</h3></div>
+              </div>
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light mb-3">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-graduation-cap"></span></span></div>
+                <div><h3 class="m-0">Timed Tests With Auto-Submit</h3></div>
+              </div>
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light mb-3">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-university"></span></span></div>
+                <div><h3 class="m-0">Automatic Grading and Instant Results</h3></div>
+              </div>
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light mb-3">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-graduation-cap"></span></span></div>
+                <div><h3 class="m-0">Performance Analytics for Teachers</h3></div>
+              </div>
+
+              <div class="d-flex align-items-center custom-icon-wrap custom-icon-light">
+                <div class="mr-3"><span class="custom-icon-inner"><span class="icon icon-university"></span></span></div>
+                <div><h3 class="m-0">Simple, Mobile-Friendly Exam Experience</h3></div>
+              </div>
+
+            </div>
+
+
+          </div>
+          <div class="col-lg-7 align-self-end"  data-aos="fade-left" data-aos-delay="200">
+            <img src="{% static 'images/person_transparent.png' %}" alt="Image" class="img-fluid">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="site-section bg-light" id="contact-section">
+      <div class="container">
+
+        <div class="row justify-content-center">
+          <div class="col-md-7">
+            <h2 class="section-title mb-3">Contact Us</h2>
+            <p class="mb-5">Need help with exam setup, student access, results, or technical issues? Send us a message and our team will respond promptly.</p>
+          
+            <form method="post" data-aos="fade">
+              {% csrf_token %}
+              <div class="form-group row">
+                <div class="col-md-6 mb-3 mb-lg-0">
+                  <input type="text" class="form-control" name="first_name" placeholder="First Name" required>
+                </div>
+                <div class="col-md-6">
+                  <input type="text" class="form-control" name="last_name" placeholder="Last Name" required>
+                </div>
+              </div>
+
+              <div class="form-group row">
+                <div class="col-md-12">
+                  <input type="text" class="form-control" name="subject" placeholder="Subject (e.g., Result issue, Login problem)" required>
+                </div>
+              </div>
+
+              <div class="form-group row">
+                <div class="col-md-12">
+                  <input type="email" class="form-control" name="email" placeholder="Work Email Address" required>
+                </div>
+              </div>
+              <div class="form-group row">
+                <div class="col-md-12">
+                  <textarea class="form-control" name="message" cols="30" rows="10" placeholder="Describe your issue or request..." required></textarea>
+                </div>
+              </div>
+
+              <div class="form-group row">
+                <div class="col-md-6">
+                  
+                  <input type="submit" class="btn btn-primary py-3 px-5 btn-block btn-pill" value="Send Request">
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}

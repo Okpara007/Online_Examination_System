@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block dashboard_navbar %}
+  {% include 'partials/_dashboard_navbar.html' %}
+{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">Teacher Dashboard</h2>
+    <p class="mb-2">Welcome {{ request.user.username }}</p>
+    <p class="mb-4">Manage exams, questions, results, proctoring logs, and reports.</p>
+
+    {% include 'teacher_portal/_nav.html' %}
+
+    <div class="row">
+      <div class="col-md-3 mb-3"><div class="border rounded p-3 bg-white"><h6>Total Exams</h6><h3>{{ exam_count }}</h3></div></div>
+      <div class="col-md-3 mb-3"><div class="border rounded p-3 bg-white"><h6>Total Questions</h6><h3>{{ question_count }}</h3></div></div>
+      <div class="col-md-3 mb-3"><div class="border rounded p-3 bg-white"><h6>Submitted Results</h6><h3>{{ result_count }}</h3></div></div>
+      <div class="col-md-3 mb-3"><div class="border rounded p-3 bg-white"><h6>Flagged Events</h6><h3>{{ flagged_count }}</h3></div></div>
+    </div>
+
+    <div class="mt-4">
+      <a href="{% url 'teacher_exam_create' %}" class="btn btn-primary mr-2 mb-2">Create Exam</a>
+      <a href="{% url 'teacher_export_results_csv' %}" class="btn btn-outline-secondary mr-2 mb-2">Export Results CSV</a>
+      <a href="{% url 'teacher_export_proctoring_csv' %}" class="btn btn-outline-secondary mb-2">Export Proctoring CSV</a>
+    </div>
+
+    <h4 class="mt-5">Recent Exams</h4>
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Title</th><th>Subject</th><th>Schedule</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for exam in recent_exams %}
+          <tr>
+            <td>{{ exam.title }}</td>
+            <td>{{ exam.subject }}</td>
+            <td>{{ exam.scheduled_at|default:"-" }}</td>
+            <td><a href="{% url 'teacher_question_list' exam.id %}">Manage Questions</a></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4">No exams created yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

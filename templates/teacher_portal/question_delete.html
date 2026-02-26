@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h3>Delete Question</h3>
+    <p>Are you sure you want to delete this question from <strong>{{ exam.title }}</strong>?</p>
+    <p>{{ question.text }}</p>
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger" type="submit">Delete</button>
+      <a class="btn btn-outline-secondary" href="{% url 'teacher_question_list' exam.id %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

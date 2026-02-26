@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-2">Result Breakdown</h2>
+    <p class="mb-4"><strong>{{ result.exam.title }}</strong></p>
+    <a href="{% url 'student_results' %}" class="btn btn-sm btn-outline-secondary mb-3">Back to Results</a>
+
+    <div class="row mb-4">
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Score</small><h4>{{ result.score }} / {{ result.exam.total_marks }}</h4></div></div>
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Correct</small><h4>{{ result.correct_count }}</h4></div></div>
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Wrong</small><h4>{{ result.wrong_count }}</h4></div></div>
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Time Taken</small><h4>{{ result.time_taken_seconds }}s</h4></div></div>
+    </div>
+
+    <div class="bg-white border rounded p-3 mb-4">
+      <h5>Performance Chart</h5>
+      <div class="progress" style="height: 26px;">
+        <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio result.correct_count result.total_questions 100 %}%">
+          Correct {% widthratio result.correct_count result.total_questions 100 %}%
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border rounded p-3 mb-4">
+      <h5>Answer Review</h5>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Q#</th><th>Your Answer</th><th>Status</th><th>Marks</th></tr></thead>
+          <tbody>
+            {% for ans in answers %}
+            <tr>
+              <td>{{ ans.question.order }}</td>
+              <td>{% if ans.selected_choice %}{{ ans.selected_choice.text }}{% else %}{{ ans.theory_answer|default:'-' }}{% endif %}</td>
+              <td>{% if ans.is_correct %}<span class="text-success">Correct</span>{% else %}<span class="text-danger">Wrong</span>{% endif %}</td>
+              <td>{{ ans.awarded_marks }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">No answer logs found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white border rounded p-3">
+      <h5>AI Proctoring Logs</h5>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>Event</th><th>Severity</th><th>Flagged</th><th>Time</th></tr></thead>
+          <tbody>
+            {% for log in proctor_logs %}
+            <tr>
+              <td>{{ log.event_type }}</td>
+              <td>{{ log.get_severity_display }}</td>
+              <td>{% if log.is_flagged %}Yes{% else %}No{% endif %}</td>
+              <td>{{ log.created_at }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">No proctoring logs.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

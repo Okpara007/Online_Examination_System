@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block navbar %}{% endblock %}
+{% block dashboard_navbar %}
+  {% include 'partials/_dashboard_navbar.html' %}
+{% endblock %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h2 class="mb-3">Student Dashboard</h2>
+    <p class="mb-2">Welcome {{ request.user.username }}</p>
+    <p class="mb-4">Assigned exams and performance overview.</p>
+    <p class="mb-3"><small><strong>Current server time:</strong> {{ current_time|date:"M d, Y h:i A T" }}</small></p>
+
+    <div class="mb-4">
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'student_results' %}">My Results</a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped bg-white">
+        <thead>
+          <tr><th>Exam</th><th>Subject</th><th>Scheduled</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for row in exam_rows %}
+          <tr>
+            <td>{{ row.exam.title }}</td>
+            <td>{{ row.exam.subject }}</td>
+            <td>{{ row.exam.scheduled_at|date:"M d, Y h:i A T"|default:"Anytime" }}</td>
+            <td>{{ row.status }}</td>
+            <td>
+              {% if row.result %}
+                <a href="{% url 'student_result_detail' row.result.id %}">View Result</a>
+              {% elif row.can_start %}
+                <a href="{% url 'student_exam_start' row.exam.id %}" class="btn btn-sm btn-primary">Start Exam</a>
+              {% else %}
+                <span class="text-muted">Not open yet</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">No assigned exams yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

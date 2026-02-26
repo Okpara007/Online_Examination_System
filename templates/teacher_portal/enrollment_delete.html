@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="site-section">
+  <div class="container">
+    <h3>Remove Enrollment</h3>
+    <p>Remove <strong>{{ enrollment.student.username }}</strong> from <strong>{{ exam.title }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger" type="submit">Remove</button>
+      <a class="btn btn-outline-secondary" href="{% url 'teacher_exam_enrollments' exam.id %}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
