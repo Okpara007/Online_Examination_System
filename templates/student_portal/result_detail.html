@@ -16,11 +16,30 @@
 
     <div class="bg-white border rounded p-3 mb-4">
       <h5>Performance Chart</h5>
-      <div class="progress" style="height: 26px;">
-        <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio result.correct_count result.total_questions 100 %}%">
-          Correct {% widthratio result.correct_count result.total_questions 100 %}%
+      {% if result.total_questions > 0 %}
+        {% widthratio result.correct_count result.total_questions 100 as correct_percent %}
+        <div class="progress" style="height: 26px;">
+          <div
+            class="progress-bar bg-success js-result-progress"
+            role="progressbar"
+            style="width: 0%;"
+            data-correct-percent="{{ correct_percent }}"
+          >
+            Correct {{ correct_percent }}%
+          </div>
         </div>
-      </div>
+      {% else %}
+        <div class="progress" style="height: 26px;">
+          <div
+            class="progress-bar bg-success js-result-progress"
+            role="progressbar"
+            style="width: 0%;"
+            data-correct-percent="0"
+          >
+            Correct 0%
+          </div>
+        </div>
+      {% endif %}
     </div>
 
     <div class="bg-white border rounded p-3 mb-4">
@@ -66,4 +85,16 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var progress = document.querySelector(".js-result-progress");
+    if (!progress) return;
+    var value = Number(progress.getAttribute("data-correct-percent") || 0);
+    var safeValue = Math.max(0, Math.min(100, value));
+    progress.style.width = safeValue + "%";
+  });
+</script>
 {% endblock %}

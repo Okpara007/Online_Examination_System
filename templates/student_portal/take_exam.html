@@ -35,7 +35,14 @@
       </div>
     </div>
 
-    <form id="exam-form" method="post" action="{% url 'student_submit_exam' exam.id %}" class="bg-white p-4 border rounded">
+    <form
+      id="exam-form"
+      method="post"
+      action="{% url 'student_submit_exam' exam.id %}"
+      class="bg-white p-4 border rounded"
+      data-remaining-seconds="{{ remaining_seconds }}"
+      data-proctor-url="{% url 'student_proctor_event' exam.id %}"
+    >
       {% csrf_token %}
       <input type="hidden" name="auto_submit" id="auto-submit" value="0">
 
@@ -67,11 +74,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<script>
+  <script>
   document.addEventListener("DOMContentLoaded", function () {
-    var seconds = {{ remaining_seconds }};
     var timer = document.getElementById("exam-timer");
     var form = document.getElementById("exam-form");
+    var seconds = Number((form && form.dataset && form.dataset.remainingSeconds) || 0);
+    var proctorUrl = (form && form.dataset && form.dataset.proctorUrl) || "";
     var autoSubmit = document.getElementById("auto-submit");
     var warningCountEl = document.getElementById("warning-count");
     var statusList = document.getElementById("proctor-status-list");
@@ -133,7 +141,7 @@
       body.append("details", details || "");
       body.append("flagged", severity === "high" || severity === "medium" ? "1" : "0");
 
-      fetch("{% url 'student_proctor_event' exam.id %}", {
+      fetch(proctorUrl, {
         method: "POST",
         headers: {
           "X-CSRFToken": csrfTokenInput ? csrfTokenInput.value : "",
