@@ -26,9 +26,22 @@ def student_required(view_func):
 
 
 def _remaining_seconds(session):
+    now = timezone.now()
     total_seconds = session.exam.duration_minutes * 60
-    elapsed = int((timezone.now() - session.started_at).total_seconds())
-    return max(0, total_seconds - elapsed)
+    elapsed = int((now - session.started_at).total_seconds())
+    remaining = max(0, total_seconds - elapsed)
+
+    deadline_at = getattr(session.exam, "deadline_at", None)
+    if deadline_at:
+        remaining_until_deadline = max(0, int((deadline_at - now).total_seconds()))
+        return min(remaining, remaining_until_deadline)
+    return remaining
+
+
+def _deadline_passed(exam, now=None):
+    now = now or timezone.now()
+    deadline_at = getattr(exam, "deadline_at", None)
+    return bool(deadline_at and deadline_at <= now)
 
 
 def _grade_and_submit_session(session, post_data, auto_submitted=False):
@@ -112,13 +125,14 @@ def student_dashboard(request):
         exam = enrollment.exam
         result = results_by_exam.get(exam.id)
         is_scheduled = bool(exam.scheduled_at)
-        can_start = (not is_scheduled) or (exam.scheduled_at and exam.scheduled_at <= now)
+        is_closed = _deadline_passed(exam, now=now)
+        can_start = ((not is_scheduled) or (exam.scheduled_at and exam.scheduled_at <= now)) and not is_closed
         exam_rows.append(
             {
                 "exam": exam,
                 "result": result,
                 "can_start": can_start,
-                "status": "Completed" if result else ("Available" if can_start else "Scheduled"),
+                "status": "Completed" if result else ("Closed" if is_closed else ("Available" if can_start else "Scheduled")),
             }
         )
     return render(
@@ -137,8 +151,13 @@ def student_exam_start(request, exam_id):
     )
     exam = enrollment.exam
 
-    if exam.scheduled_at and exam.scheduled_at > timezone.now():
+    now = timezone.now()
+
+    if exam.scheduled_at and exam.scheduled_at > now:
         messages.error(request, "This exam is not open yet.")
+        return redirect("student_dashboard")
+    if _deadline_passed(exam, now=now):
+        messages.error(request, "Exam deadline has passed. You can no longer access this exam.")
         return redirect("student_dashboard")
 
     existing_result = ExamResult.objects.filter(exam=exam, student=request.user).first()
@@ -204,6 +223,19 @@ def student_exam_start(request, exam_id):
 def student_take_exam(request, exam_id):
     enrollment = get_object_or_404(ExamEnrollment, exam_id=exam_id, student=request.user)
     exam = enrollment.exam
+    if _deadline_passed(exam):
+        session = (
+            ExamSession.objects.filter(exam=exam, student=request.user, submitted_at__isnull=True)
+            .order_by("-started_at")
+            .first()
+        )
+        if session:
+            result = _grade_and_submit_session(session, post_data={}, auto_submitted=True)
+            messages.warning(request, "Exam deadline reached. Your session was auto-submitted.")
+            return redirect("student_result_detail", result_id=result.id)
+        messages.error(request, "Exam deadline has passed. You can no longer access this exam.")
+        return redirect("student_dashboard")
+
     session = (
         ExamSession.objects.filter(exam=exam, student=request.user, submitted_at__isnull=True)
         .order_by("-started_at")
@@ -245,6 +277,11 @@ def student_submit_exam(request, exam_id):
     if not session:
         messages.error(request, "No active exam session found.")
         return redirect("student_dashboard")
+
+    if _deadline_passed(exam):
+        result = _grade_and_submit_session(session, post_data=request.POST, auto_submitted=True)
+        messages.warning(request, "Deadline passed. Your exam was auto-submitted.")
+        return redirect("student_result_detail", result_id=result.id)
 
     auto_submitted = request.POST.get("auto_submit") == "1" or _remaining_seconds(session) <= 0
     result = _grade_and_submit_session(session, post_data=request.POST, auto_submitted=auto_submitted)

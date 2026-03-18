@@ -5,7 +5,7 @@ from .models import Choice, Exam, ExamEnrollment, ExamResult, ExamSession, Quest
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
-    list_display = ("title", "subject", "teacher", "scheduled_at", "total_marks")
+    list_display = ("title", "subject", "teacher", "scheduled_at", "deadline_at", "total_marks")
     search_fields = ("title", "subject", "teacher__username")
     list_filter = ("subject",)
 

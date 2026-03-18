@@ -9,9 +9,10 @@ from proctoring.models import ProctoringLog
 class ExamForm(forms.ModelForm):
     class Meta:
         model = Exam
-        fields = ("subject", "title", "duration_minutes", "total_marks", "scheduled_at")
+        fields = ("subject", "title", "duration_minutes", "total_marks", "scheduled_at", "deadline_at")
         widgets = {
             "scheduled_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "deadline_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -19,6 +20,16 @@ class ExamForm(forms.ModelForm):
         for field in self.fields.values():
             css_class = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = f"{css_class} form-control".strip()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        scheduled_at = cleaned_data.get("scheduled_at")
+        deadline_at = cleaned_data.get("deadline_at")
+
+        if scheduled_at and deadline_at and deadline_at <= scheduled_at:
+            self.add_error("deadline_at", "Deadline must be after the exam start time.")
+
+        return cleaned_data
 
 
 class QuestionForm(forms.ModelForm):

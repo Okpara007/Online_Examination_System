@@ -9,6 +9,7 @@ class Exam(models.Model):
     duration_minutes = models.PositiveIntegerField(default=60)
     total_marks = models.PositiveIntegerField(default=100)
     scheduled_at = models.DateTimeField(null=True, blank=True)
+    deadline_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
