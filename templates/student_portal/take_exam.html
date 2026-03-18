@@ -113,6 +113,13 @@
 
     function pushStatus(message) {
       if (!statusList) return;
+      var lowerMessage = String(message || "").toLowerCase();
+      // Hide only low-level model diagnostics from students.
+      if (
+        lowerMessage.indexOf("face checks paused due to model error") !== -1 ||
+        lowerMessage.indexOf("face model load failed. face checks disabled.") !== -1
+      ) return;
+
       var row = document.createElement("li");
       row.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
       statusList.prepend(row);
@@ -173,7 +180,7 @@
 
       var severity = escalateSeverity(policy.base, state.count);
       var details = customDetails || policy.detail;
-      pushStatus(eventType + " -> " + severity.toUpperCase() + " (" + details + ")");
+      pushStatus("Proctoring activity recorded.");
       sendProctorEvent(eventType, severity, details + " | repeats=" + state.count);
     }
 

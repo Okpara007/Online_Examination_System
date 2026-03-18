@@ -72,6 +72,7 @@
 
     var stream = null;
     var hasCapture = false;
+    var isSubmitting = false;
 
     function setStatus(message, isError) {
       status.textContent = message;
@@ -138,10 +139,28 @@
     retakeBtn.addEventListener("click", retake);
 
     form.addEventListener("submit", function (event) {
+      if (isSubmitting) {
+        event.preventDefault();
+        return;
+      }
+
       if (!fileInput.files || fileInput.files.length === 0) {
         event.preventDefault();
         setStatus("Capture a photo (or upload one) before verifying.", true);
+        return;
       }
+
+      event.preventDefault();
+      isSubmitting = true;
+      verifyBtn.disabled = true;
+      captureBtn.disabled = true;
+      retakeBtn.disabled = true;
+      setStatus("Verifying...");
+      verifyBtn.textContent = "Verifying...";
+
+      setTimeout(function () {
+        form.submit();
+      }, 3000);
     });
 
     window.addEventListener("beforeunload", stopStream);

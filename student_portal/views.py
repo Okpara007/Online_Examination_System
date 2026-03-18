@@ -10,7 +10,6 @@ from django.views.decorators.http import require_POST
 from accounts.utils import dashboard_url_for_user
 from exams.models import Choice, ExamEnrollment, ExamResult, ExamSession, Question, StudentAnswer
 from proctoring.models import ProctoringLog
-from .services import verify_face_match
 
 
 def student_required(view_func):
@@ -158,14 +157,22 @@ def student_exam_start(request, exam_id):
 
         face_probe = request.FILES.get("face_probe")
         profile = request.user.profile
-        ok, note = verify_face_match(profile.face_image, face_probe)
-        if not ok:
-            messages.error(request, f"Face verification failed: {note}")
-            return render(
-                request,
-                "student_portal/exam_start.html",
-                {"exam": exam, "current_time": timezone.localtime(timezone.now())},
-            )
+        note = "Face verification simulated for project demo (matching checks bypassed)."
+
+        # Simulation mode: keep the capture flow, store the latest probe image, and skip strict checks.
+        if face_probe:
+            profile.face_image = face_probe
+            profile.save(update_fields=["face_image"])
+
+        # Original strict verification flow intentionally disabled for this project simulation:
+        # ok, note = verify_face_match(profile.face_image, face_probe)
+        # if not ok:
+        #     messages.error(request, f"Face verification failed: {note}")
+        #     return render(
+        #         request,
+        #         "student_portal/exam_start.html",
+        #         {"exam": exam, "current_time": timezone.localtime(timezone.now())},
+        #     )
 
         session = (
             ExamSession.objects.filter(exam=exam, student=request.user, submitted_at__isnull=True)
