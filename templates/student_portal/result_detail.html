@@ -9,15 +9,15 @@
 
     <div class="row mb-4">
       <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Score</small><h4>{{ result.score }} / {{ result.exam.total_marks }}</h4></div></div>
-      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Correct</small><h4>{{ result.correct_count }}</h4></div></div>
-      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Wrong</small><h4>{{ result.wrong_count }}</h4></div></div>
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Correct</small><h4>{{ display_correct_count }}</h4></div></div>
+      <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Wrong</small><h4>{{ display_wrong_count }}</h4></div></div>
       <div class="col-md-3 mb-2"><div class="border rounded p-3 bg-white"><small>Time Taken</small><h4>{{ result.time_taken_seconds }}s</h4></div></div>
     </div>
 
     <div class="bg-white border rounded p-3 mb-4">
       <h5>Performance Chart</h5>
-      {% if result.total_questions > 0 %}
-        {% widthratio result.correct_count result.total_questions 100 as correct_percent %}
+      {% if display_total_questions > 0 %}
+        {% widthratio display_correct_count display_total_questions 100 as correct_percent %}
         <div class="progress" style="height: 26px;">
           <div
             class="progress-bar bg-success js-result-progress"
@@ -52,7 +52,7 @@
             <tr>
               <td>{{ ans.question.order }}</td>
               <td>{% if ans.selected_choice %}{{ ans.selected_choice.text }}{% else %}{{ ans.theory_answer|default:'-' }}{% endif %}</td>
-              <td>{% if ans.is_correct %}<span class="text-success">Correct</span>{% else %}<span class="text-danger">Wrong</span>{% endif %}</td>
+              <td>{% if ans.awarded_marks > 0 %}<span class="text-success">Correct</span>{% else %}<span class="text-danger">Wrong</span>{% endif %}</td>
               <td>{{ ans.awarded_marks }}</td>
             </tr>
             {% empty %}

@@ -15,7 +15,7 @@
           <h6 class="mb-3">Live Proctoring Status</h6>
           <div id="proctor-alert" class="alert alert-warning py-2 px-3 d-none" role="alert"></div>
           <div class="mb-2">
-            <span class="badge badge-info">Warnings: <span id="warning-count">{{ session.warning_count }}</span>/3</span>
+            <span class="badge badge-info">Warnings: <span id="warning-count">{{ session.warning_count }}</span>/15</span>
           </div>
           <ul class="mb-0 pl-3" id="proctor-status-list">
             <li>Initializing proctoring systems...</li>
@@ -75,7 +75,6 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script>
   document.addEventListener("DOMContentLoaded", function () {
     var timer = document.getElementById("exam-timer");
@@ -95,12 +94,13 @@
     var proctoringActive = true;
     var eventState = {};
     var noFaceStreak = 0;
+    var lookingAwayStreak = 0;
     var faceDetector = null;
-    var faceModelSources = [
-      "{% static 'models/faceapi' %}",
-      "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights",
-      "https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights"
-    ];
+    var minFaceAreaRatio = 0.02;
+    var minFaceScore = 0.65;
+    var mediapipeVersion = "0.10.14";
+    var mediapipeWasmRoot = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + mediapipeVersion + "/wasm";
+    var mediapipeFaceModel = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite";
 
     var severityLevel = { low: 1, medium: 2, high: 3 };
     var eventPolicy = {
@@ -108,7 +108,7 @@
       window_blur: { base: "medium", cooldownMs: 20000, detail: "Browser window lost focus" },
       no_face: { base: "medium", cooldownMs: 2500, detail: "No face detected in frame" },
       multiple_faces: { base: "high", cooldownMs: 5000, detail: "Multiple faces detected in frame" },
-      looking_away: { base: "low", cooldownMs: 10000, detail: "Student appears to be looking away" },
+      looking_away: { base: "low", cooldownMs: 3000, detail: "Student appears to be looking away" },
       phone_detected: { base: "high", cooldownMs: 4000, detail: "Phone detected in camera frame" },
       prohibited_object: { base: "high", cooldownMs: 5000, detail: "Prohibited object detected in camera frame" },
       high_noise: { base: "low", cooldownMs: 10000, detail: "High ambient noise detected" },
@@ -120,7 +120,7 @@
       window_blur: "Your browser window lost focus.",
       no_face: "No face detected. Stay in front of the camera.",
       multiple_faces: "Multiple faces detected. Only one candidate is allowed.",
-      looking_away: "Please keep looking at the screen.",
+      looking_away: "Please keep your face within the camera view.",
       phone_detected: "Phone detected. Remove phone from camera view.",
       prohibited_object: "Restricted object detected. Clear your desk/camera view.",
       high_noise: "High background noise detected.",
@@ -226,81 +226,115 @@
       form.submit();
     }
 
-    function estimateLookingAway(landmarks) {
-      if (!landmarks) return false;
-      var leftEye = landmarks.getLeftEye();
-      var rightEye = landmarks.getRightEye();
-      var nose = landmarks.getNose();
-      if (!leftEye || !rightEye || !nose || !leftEye.length || !rightEye.length || !nose.length) return false;
+    function getDetectionScore(det) {
+      if (!det) return 0;
+      if (det.categories && det.categories.length) return Number(det.categories[0].score || 0);
+      return Number(det.score || 0);
+    }
 
-      var left = leftEye.reduce(function (sum, p) { return sum + p.x; }, 0) / leftEye.length;
-      var right = rightEye.reduce(function (sum, p) { return sum + p.x; }, 0) / rightEye.length;
-      var noseX = nose.reduce(function (sum, p) { return sum + p.x; }, 0) / nose.length;
-      var eyeCenter = (left + right) / 2;
-      var eyeDistance = Math.max(1, Math.abs(right - left));
-      var yawRatio = Math.abs(noseX - eyeCenter) / eyeDistance;
-      return yawRatio > 0.18;
+    function getFaceBox(det) {
+      if (!det) return null;
+      if (det.boundingBox) {
+        return {
+          x: Number(det.boundingBox.originX || 0),
+          y: Number(det.boundingBox.originY || 0),
+          width: Number(det.boundingBox.width || 0),
+          height: Number(det.boundingBox.height || 0)
+        };
+      }
+      if (det.detection && det.detection.box) {
+        return {
+          x: Number(det.detection.box.x || 0),
+          y: Number(det.detection.box.y || 0),
+          width: Number(det.detection.box.width || 0),
+          height: Number(det.detection.box.height || 0)
+        };
+      }
+      return null;
     }
 
     function isStrongFaceDetection(det) {
-      if (!det || !det.detection || !det.detection.box || !video) return false;
-      var score = Number(det.detection.score || 0);
-      var box = det.detection.box;
+      if (!video) return false;
+      var score = getDetectionScore(det);
+      var box = getFaceBox(det);
+      if (!box || !box.width || !box.height) return false;
       var frameArea = Math.max(1, (video.videoWidth || 1) * (video.videoHeight || 1));
       var faceAreaRatio = (box.width * box.height) / frameArea;
-      return score >= 0.7 && faceAreaRatio >= 0.03;
+      return score >= minFaceScore && faceAreaRatio >= minFaceAreaRatio;
     }
 
-    async function detectFaceCountFast() {
+    function isCenteredFace(det) {
+      if (!video) return false;
+      var box = getFaceBox(det);
+      if (!box || !box.width || !box.height) return false;
+      var frameW = Math.max(1, video.videoWidth || 1);
+      var frameH = Math.max(1, video.videoHeight || 1);
+      var faceCenterX = box.x + (box.width / 2);
+      var faceCenterY = box.y + (box.height / 2);
+      var dx = Math.abs(faceCenterX - (frameW / 2)) / frameW;
+      var dy = Math.abs(faceCenterY - (frameH / 2)) / frameH;
+      return dx <= 0.35 && dy <= 0.35;
+    }
+
+    async function detectFaces() {
       if (!faceDetector || !video || video.readyState < 2) return null;
       try {
-        var faces = await faceDetector.detect(video);
-        return Array.isArray(faces) ? faces.length : 0;
+        var result = null;
+        if (typeof faceDetector.detectForVideo === "function") {
+          result = faceDetector.detectForVideo(video, performance.now());
+        } else if (typeof faceDetector.detect === "function") {
+          result = await faceDetector.detect(video);
+        }
+        var detections = result && result.detections ? result.detections : result;
+        return Array.isArray(detections) ? detections : [];
       } catch (error) {
         return null;
       }
     }
 
     async function runFaceChecks() {
-      if (!window.faceapi || !faceChecksEnabled || !video || !proctoringActive || video.readyState < 2) return;
+      if (!faceChecksEnabled || !video || !proctoringActive || video.readyState < 2) return;
       try {
-        var fastCount = await detectFaceCountFast();
-        if (fastCount === 0) {
+        var detections = await detectFaces();
+        if (!detections || detections.length === 0) {
           noFaceStreak += 1;
+          lookingAwayStreak = 0;
           if (noFaceStreak >= 2) {
-            reportEvent("no_face", "No face detected in frame (fast detector)");
+            reportEvent("no_face");
           }
           return;
         }
-        if (fastCount && fastCount > 1) {
-          noFaceStreak = 0;
-          reportEvent("multiple_faces");
-          return;
-        }
 
-        var detections = await window.faceapi
-          .detectAllFaces(video, new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-          .withFaceLandmarks();
-
-        var validDetections = (detections || []).filter(isStrongFaceDetection);
+        var validDetections = (detections || []).filter(function (det) {
+          return isStrongFaceDetection(det);
+        });
         if (!validDetections.length) {
           noFaceStreak += 1;
+          lookingAwayStreak = 0;
           if (noFaceStreak >= 2) {
-            reportEvent("no_face", "No face detected in frame (streak=" + noFaceStreak + ")");
+            reportEvent("no_face");
           }
           return;
         }
         noFaceStreak = 0;
         if (validDetections.length > 1) {
+          lookingAwayStreak = 0;
           reportEvent("multiple_faces");
           return;
         }
-        if (estimateLookingAway(validDetections[0].landmarks)) {
-          reportEvent("looking_away");
+
+        var activeFace = validDetections[0];
+        if (!isCenteredFace(activeFace)) {
+          lookingAwayStreak += 1;
+          if (lookingAwayStreak >= 3) {
+            reportEvent("looking_away");
+          }
+          return;
         }
+        lookingAwayStreak = 0;
       } catch (error) {
         faceChecksEnabled = false;
-        pushStatus("Face checks paused due to model error.");
+        pushStatus("Face checks paused due to detector error.");
       }
     }
 
@@ -371,22 +405,19 @@
         return;
       }
 
-      var faceLoadError = null;
-      for (var i = 0; i < faceModelSources.length; i += 1) {
-        var modelSource = faceModelSources[i];
-        try {
-          await window.faceapi.nets.tinyFaceDetector.loadFromUri(modelSource);
-          await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelSource);
-          faceChecksEnabled = true;
-          pushStatus("Face models loaded from: " + modelSource);
-          break;
-        } catch (error) {
-          faceLoadError = error;
-        }
-      }
-      if (!faceChecksEnabled) {
-        var faceErrorText = faceLoadError && faceLoadError.message ? faceLoadError.message : "unknown error";
-        pushStatus("Face model load failed. Face checks disabled. Reason: " + faceErrorText);
+      try {
+        var vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + mediapipeVersion);
+        var filesetResolver = await vision.FilesetResolver.forVisionTasks(mediapipeWasmRoot);
+        faceDetector = await vision.FaceDetector.createFromOptions(filesetResolver, {
+          baseOptions: { modelAssetPath: mediapipeFaceModel },
+          runningMode: "VIDEO",
+          minDetectionConfidence: 0.65
+        });
+        faceChecksEnabled = true;
+        pushStatus("MediaPipe face detector loaded.");
+      } catch (error) {
+        var detectorError = error && error.message ? error.message : "unknown error";
+        pushStatus("MediaPipe face detector unavailable. Face checks disabled. Reason: " + detectorError);
       }
 
       try {
@@ -399,15 +430,8 @@
 
       var audioTrack = stream.getAudioTracks()[0];
       setupNoiseDetection(audioTrack);
-      if ("FaceDetector" in window) {
-        try {
-          faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
-          pushStatus("Fast face detector initialized.");
-        } catch (error) {
-          faceDetector = null;
-        }
-      }
-      setInterval(runFaceChecks, 1000);
+      setTimeout(runFaceChecks, 300);
+      setInterval(runFaceChecks, 700);
       setInterval(runPhoneChecks, 3000);
       pushStatus("Proctoring active.");
     }

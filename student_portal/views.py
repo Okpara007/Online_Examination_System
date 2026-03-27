@@ -12,6 +12,8 @@ from exams.models import Choice, ExamEnrollment, ExamResult, ExamSession, Questi
 from proctoring.models import ProctoringLog
 from .services import validate_face_probe_capture
 
+WARNING_LIMIT = 15
+
 
 def student_required(view_func):
     @wraps(view_func)
@@ -57,16 +59,21 @@ def _grade_and_submit_session(session, post_data, auto_submitted=False):
         selected_choice = None
         selected_choice_id = None
         theory_answer = ""
+        answered = False
 
         if question.question_type == Question.QuestionType.MULTIPLE_CHOICE:
             selected_choice_id = post_data.get(f"question_{question.id}_choice")
             if selected_choice_id:
                 selected_choice = question.choices.filter(id=selected_choice_id).first()
+                answered = bool(selected_choice)
         else:
             theory_answer = post_data.get(f"question_{question.id}_theory", "").strip()
+            answered = bool(theory_answer)
 
         awarded = question.grade_answer(selected_choice_id=selected_choice_id, theory_answer=theory_answer)
-        is_correct = awarded >= question.marks
+        # A response is only "correct" when the student actually answered and earned marks.
+        # This prevents unanswered or zero-mark edge cases from showing as correct.
+        is_correct = answered and awarded > 0 and awarded >= question.marks
 
         StudentAnswer.objects.update_or_create(
             session=session,
@@ -103,7 +110,7 @@ def _grade_and_submit_session(session, post_data, auto_submitted=False):
 
     session.submitted_at = submitted_at
     session.is_auto_submitted = auto_submitted
-    if session.warning_count >= 3:
+    if session.warning_count >= WARNING_LIMIT:
         session.is_flagged = True
     session.save(update_fields=["submitted_at", "is_auto_submitted", "is_flagged"])
     return result
@@ -326,6 +333,9 @@ def student_result_detail(request, result_id):
     answers = []
     if session:
         answers = session.answers.select_related("question", "selected_choice").order_by("question__order")
+    display_correct_count = sum(1 for ans in answers if (ans.awarded_marks or 0) > 0)
+    display_total_questions = result.total_questions or len(answers)
+    display_wrong_count = max(0, display_total_questions - display_correct_count)
     proctor_logs = ProctoringLog.objects.filter(exam=result.exam, student=request.user).order_by("-created_at")[:20]
     return render(
         request,
@@ -334,6 +344,9 @@ def student_result_detail(request, result_id):
             "result": result,
             "session": session,
             "answers": answers,
+            "display_correct_count": display_correct_count,
+            "display_wrong_count": display_wrong_count,
+            "display_total_questions": display_total_questions,
             "proctor_logs": proctor_logs,
         },
     )
@@ -357,7 +370,7 @@ def student_proctor_event(request, exam_id):
 
     if flagged or severity in {ProctoringLog.Severity.MEDIUM, ProctoringLog.Severity.HIGH}:
         session.warning_count += 1
-    if session.warning_count >= 3:
+    if session.warning_count >= WARNING_LIMIT:
         session.is_flagged = True
     session.save(update_fields=["warning_count", "is_flagged"])
 
@@ -367,12 +380,12 @@ def student_proctor_event(request, exam_id):
         event_type=event_type,
         details=details,
         severity=severity,
-        is_flagged=flagged or session.warning_count >= 3,
+        is_flagged=flagged or session.warning_count >= WARNING_LIMIT,
     )
     return JsonResponse(
         {
             "ok": True,
             "warning_count": session.warning_count,
-            "force_submit": session.warning_count >= 3,
+            "force_submit": session.warning_count >= WARNING_LIMIT,
         }
     )

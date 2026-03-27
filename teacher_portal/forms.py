@@ -50,6 +50,7 @@ class QuestionForm(forms.ModelForm):
             css_class = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = f"{css_class} form-control".strip()
         self.fields["correct_option"].widget.attrs["class"] = "form-control"
+        self.fields["marks"].widget.attrs["min"] = 1
 
         if self.is_bound:
             posted_type = self.data.get("question_type")
@@ -71,10 +72,14 @@ class QuestionForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         question_type = cleaned_data.get("question_type")
+        marks = cleaned_data.get("marks")
         correct_answer = (cleaned_data.get("correct_answer") or "").strip()
         options_raw = cleaned_data.get("options") or ""
         options = [line.strip() for line in options_raw.splitlines() if line.strip()]
         correct_option = cleaned_data.get("correct_option")
+
+        if marks is not None and marks <= 0:
+            self.add_error("marks", "Marks must be at least 1.")
 
         if question_type == Question.QuestionType.MULTIPLE_CHOICE:
             if len(options) < 2:
