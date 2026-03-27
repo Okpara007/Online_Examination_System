@@ -92,3 +92,33 @@ def verify_face_match(reference_image, probe_image, tolerance: float = 0.5) -> T
     if is_match:
         return True, f"Face verified (distance={distance:.3f}, tolerance={tolerance:.2f})."
     return False, f"Face mismatch (distance={distance:.3f}, tolerance={tolerance:.2f})."
+
+
+def validate_face_probe_capture(probe_image, min_brightness: float = 40.0) -> Tuple[bool, str]:
+    """
+    Validate a pre-exam capture before starting an exam.
+    Ensures the camera view is not too dark/covered and has exactly one visible face.
+    """
+    try:
+        import cv2
+        import face_recognition
+    except ImportError:
+        return False, "Face verification unavailable. Install face_recognition and opencv-python."
+
+    bgr = _decode_uploaded_image(probe_image)
+    if bgr is None:
+        return False, "Invalid or unreadable image."
+
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    brightness = float(gray.mean())
+    if brightness < min_brightness:
+        return False, "Capture is too dark. Ensure the camera is not covered and your face is well lit."
+
+    rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+    locations = face_recognition.face_locations(rgb, model="hog")
+    if len(locations) == 0:
+        return False, "No face detected. Center your face in the camera and try again."
+    if len(locations) > 1:
+        return False, "Multiple faces detected. Only one face is allowed."
+
+    return True, "Face capture validated."

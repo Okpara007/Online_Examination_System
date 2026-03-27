@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block navbar %}{% endblock %}
 {% block content %}
 <div class="site-section">
@@ -12,6 +13,7 @@
       <div class="col-lg-7 mb-3 mb-lg-0">
         <div class="bg-white border rounded p-3 h-100">
           <h6 class="mb-3">Live Proctoring Status</h6>
+          <div id="proctor-alert" class="alert alert-warning py-2 px-3 d-none" role="alert"></div>
           <div class="mb-2">
             <span class="badge badge-info">Warnings: <span id="warning-count">{{ session.warning_count }}</span>/3</span>
           </div>
@@ -83,6 +85,7 @@
     var autoSubmit = document.getElementById("auto-submit");
     var warningCountEl = document.getElementById("warning-count");
     var statusList = document.getElementById("proctor-status-list");
+    var proctorAlert = document.getElementById("proctor-alert");
     var video = document.getElementById("proctor-video");
     var csrfTokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
     var stream = null;
@@ -91,19 +94,41 @@
     var phoneChecksEnabled = false;
     var proctoringActive = true;
     var eventState = {};
+    var noFaceStreak = 0;
+    var faceDetector = null;
+    var faceModelSources = [
+      "{% static 'models/faceapi' %}",
+      "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights",
+      "https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights"
+    ];
 
     var severityLevel = { low: 1, medium: 2, high: 3 };
     var eventPolicy = {
       tab_hidden: { base: "medium", cooldownMs: 20000, detail: "Student switched away from exam tab" },
       window_blur: { base: "medium", cooldownMs: 20000, detail: "Browser window lost focus" },
-      no_face: { base: "low", cooldownMs: 12000, detail: "No face detected in frame" },
+      no_face: { base: "medium", cooldownMs: 2500, detail: "No face detected in frame" },
       multiple_faces: { base: "high", cooldownMs: 5000, detail: "Multiple faces detected in frame" },
       looking_away: { base: "low", cooldownMs: 10000, detail: "Student appears to be looking away" },
       phone_detected: { base: "high", cooldownMs: 4000, detail: "Phone detected in camera frame" },
+      prohibited_object: { base: "high", cooldownMs: 5000, detail: "Prohibited object detected in camera frame" },
       high_noise: { base: "low", cooldownMs: 10000, detail: "High ambient noise detected" },
       camera_unavailable: { base: "high", cooldownMs: 15000, detail: "Camera permission denied/unavailable" },
       microphone_unavailable: { base: "medium", cooldownMs: 20000, detail: "Microphone unavailable" }
     };
+    var eventLabels = {
+      tab_hidden: "You switched away from the exam tab.",
+      window_blur: "Your browser window lost focus.",
+      no_face: "No face detected. Stay in front of the camera.",
+      multiple_faces: "Multiple faces detected. Only one candidate is allowed.",
+      looking_away: "Please keep looking at the screen.",
+      phone_detected: "Phone detected. Remove phone from camera view.",
+      prohibited_object: "Restricted object detected. Clear your desk/camera view.",
+      high_noise: "High background noise detected.",
+      camera_unavailable: "Camera is unavailable.",
+      microphone_unavailable: "Microphone is unavailable."
+    };
+    var prohibitedClasses = new Set(["cell phone", "book", "laptop", "remote", "keyboard"]);
+    var alertTimer = null;
 
     function renderTime() {
       var mins = Math.floor(seconds / 60);
@@ -113,19 +138,24 @@
 
     function pushStatus(message) {
       if (!statusList) return;
-      var lowerMessage = String(message || "").toLowerCase();
-      // Hide only low-level model diagnostics from students.
-      if (
-        lowerMessage.indexOf("face checks paused due to model error") !== -1 ||
-        lowerMessage.indexOf("face model load failed. face checks disabled.") !== -1
-      ) return;
-
       var row = document.createElement("li");
       row.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
       statusList.prepend(row);
       while (statusList.children.length > 8) {
         statusList.removeChild(statusList.lastChild);
       }
+    }
+
+    function showWarningAlert(message) {
+      if (!proctorAlert || !message) return;
+      proctorAlert.textContent = message;
+      proctorAlert.classList.remove("d-none");
+      if (alertTimer) {
+        clearTimeout(alertTimer);
+      }
+      alertTimer = setTimeout(function () {
+        proctorAlert.classList.add("d-none");
+      }, 4500);
     }
 
     function severityByLevel(level) {
@@ -180,7 +210,8 @@
 
       var severity = escalateSeverity(policy.base, state.count);
       var details = customDetails || policy.detail;
-      pushStatus("Proctoring activity recorded.");
+      pushStatus("Proctoring warning: " + details);
+      showWarningAlert(eventLabels[eventType] || details);
       sendProctorEvent(eventType, severity, details + " | repeats=" + state.count);
     }
 
@@ -211,22 +242,60 @@
       return yawRatio > 0.18;
     }
 
+    function isStrongFaceDetection(det) {
+      if (!det || !det.detection || !det.detection.box || !video) return false;
+      var score = Number(det.detection.score || 0);
+      var box = det.detection.box;
+      var frameArea = Math.max(1, (video.videoWidth || 1) * (video.videoHeight || 1));
+      var faceAreaRatio = (box.width * box.height) / frameArea;
+      return score >= 0.7 && faceAreaRatio >= 0.03;
+    }
+
+    async function detectFaceCountFast() {
+      if (!faceDetector || !video || video.readyState < 2) return null;
+      try {
+        var faces = await faceDetector.detect(video);
+        return Array.isArray(faces) ? faces.length : 0;
+      } catch (error) {
+        return null;
+      }
+    }
+
     async function runFaceChecks() {
       if (!window.faceapi || !faceChecksEnabled || !video || !proctoringActive || video.readyState < 2) return;
       try {
+        var fastCount = await detectFaceCountFast();
+        if (fastCount === 0) {
+          noFaceStreak += 1;
+          if (noFaceStreak >= 2) {
+            reportEvent("no_face", "No face detected in frame (fast detector)");
+          }
+          return;
+        }
+        if (fastCount && fastCount > 1) {
+          noFaceStreak = 0;
+          reportEvent("multiple_faces");
+          return;
+        }
+
         var detections = await window.faceapi
           .detectAllFaces(video, new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
           .withFaceLandmarks();
 
-        if (!detections || detections.length === 0) {
-          reportEvent("no_face");
+        var validDetections = (detections || []).filter(isStrongFaceDetection);
+        if (!validDetections.length) {
+          noFaceStreak += 1;
+          if (noFaceStreak >= 2) {
+            reportEvent("no_face", "No face detected in frame (streak=" + noFaceStreak + ")");
+          }
           return;
         }
-        if (detections.length > 1) {
+        noFaceStreak = 0;
+        if (validDetections.length > 1) {
           reportEvent("multiple_faces");
           return;
         }
-        if (estimateLookingAway(detections[0].landmarks)) {
+        if (estimateLookingAway(validDetections[0].landmarks)) {
           reportEvent("looking_away");
         }
       } catch (error) {
@@ -244,6 +313,13 @@
         });
         if (hasPhone) {
           reportEvent("phone_detected");
+          return;
+        }
+        var restricted = predictions.find(function (pred) {
+          return prohibitedClasses.has(pred.class) && pred.score >= 0.6;
+        });
+        if (restricted) {
+          reportEvent("prohibited_object", "Detected object: " + restricted.class + " (confidence=" + restricted.score.toFixed(2) + ")");
         }
       } catch (error) {
         phoneChecksEnabled = false;
@@ -295,13 +371,22 @@
         return;
       }
 
-      try {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights");
-        await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights");
-        faceChecksEnabled = true;
-        pushStatus("Face models loaded.");
-      } catch (error) {
-        pushStatus("Face model load failed. Face checks disabled.");
+      var faceLoadError = null;
+      for (var i = 0; i < faceModelSources.length; i += 1) {
+        var modelSource = faceModelSources[i];
+        try {
+          await window.faceapi.nets.tinyFaceDetector.loadFromUri(modelSource);
+          await window.faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelSource);
+          faceChecksEnabled = true;
+          pushStatus("Face models loaded from: " + modelSource);
+          break;
+        } catch (error) {
+          faceLoadError = error;
+        }
+      }
+      if (!faceChecksEnabled) {
+        var faceErrorText = faceLoadError && faceLoadError.message ? faceLoadError.message : "unknown error";
+        pushStatus("Face model load failed. Face checks disabled. Reason: " + faceErrorText);
       }
 
       try {
@@ -314,8 +399,16 @@
 
       var audioTrack = stream.getAudioTracks()[0];
       setupNoiseDetection(audioTrack);
-      setInterval(runFaceChecks, 5000);
-      setInterval(runPhoneChecks, 4000);
+      if ("FaceDetector" in window) {
+        try {
+          faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+          pushStatus("Fast face detector initialized.");
+        } catch (error) {
+          faceDetector = null;
+        }
+      }
+      setInterval(runFaceChecks, 1000);
+      setInterval(runPhoneChecks, 3000);
       pushStatus("Proctoring active.");
     }
 

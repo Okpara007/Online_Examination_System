@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from accounts.utils import dashboard_url_for_user
 from exams.models import Choice, ExamEnrollment, ExamResult, ExamSession, Question, StudentAnswer
 from proctoring.models import ProctoringLog
+from .services import validate_face_probe_capture
 
 
 def student_required(view_func):
@@ -175,13 +176,29 @@ def student_exam_start(request, exam_id):
             )
 
         face_probe = request.FILES.get("face_probe")
-        profile = request.user.profile
-        note = "Face verification simulated for project demo (matching checks bypassed)."
+        if not face_probe:
+            messages.error(request, "Capture a clear live photo before verification.")
+            return render(
+                request,
+                "student_portal/exam_start.html",
+                {"exam": exam, "current_time": timezone.localtime(timezone.now())},
+            )
 
-        # Simulation mode: keep the capture flow, store the latest probe image, and skip strict checks.
-        if face_probe:
-            profile.face_image = face_probe
-            profile.save(update_fields=["face_image"])
+        capture_ok, capture_note = validate_face_probe_capture(face_probe)
+        if not capture_ok:
+            messages.error(request, capture_note)
+            return render(
+                request,
+                "student_portal/exam_start.html",
+                {"exam": exam, "current_time": timezone.localtime(timezone.now())},
+            )
+
+        profile = request.user.profile
+        note = "Face capture validated. Identity match check remains in simulation mode for this project demo."
+
+        # Simulation mode: keep the capture flow, store the latest probe image, and skip strict identity matching.
+        profile.face_image = face_probe
+        profile.save(update_fields=["face_image"])
 
         # Original strict verification flow intentionally disabled for this project simulation:
         # ok, note = verify_face_match(profile.face_image, face_probe)

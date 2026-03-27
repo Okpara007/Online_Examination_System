@@ -74,6 +74,7 @@
     var stream = null;
     var hasCapture = false;
     var isSubmitting = false;
+    var minBrightness = 35;
 
     function setStatus(message, isError) {
       status.textContent = message;
@@ -93,7 +94,36 @@
       return dt;
     }
 
-    function captureFrame() {
+    function estimateBrightness(canvas) {
+      var ctx = canvas.getContext("2d", { willReadFrequently: true });
+      var step = 8;
+      var w = canvas.width;
+      var h = canvas.height;
+      var sum = 0;
+      var count = 0;
+      for (var y = 0; y < h; y += step) {
+        for (var x = 0; x < w; x += step) {
+          var pixel = ctx.getImageData(x, y, 1, 1).data;
+          var luminance = 0.2126 * pixel[0] + 0.7152 * pixel[1] + 0.0722 * pixel[2];
+          sum += luminance;
+          count += 1;
+        }
+      }
+      return count ? (sum / count) : 0;
+    }
+
+    async function detectFaceCount(canvas) {
+      if (!("FaceDetector" in window)) return null;
+      try {
+        var detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
+        var faces = await detector.detect(canvas);
+        return faces.length;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function captureFrame() {
       if (!stream || !video.videoWidth || !video.videoHeight) {
         setStatus("Camera is not ready yet. Please wait and try again.", true);
         return;
@@ -104,6 +134,22 @@
       canvas.height = video.videoHeight;
       var ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      var brightness = estimateBrightness(canvas);
+      if (brightness < minBrightness) {
+        setStatus("Capture is too dark. Ensure camera is not covered and improve lighting.", true);
+        return;
+      }
+
+      var faceCount = await detectFaceCount(canvas);
+      if (faceCount === 0) {
+        setStatus("No face detected. Position your face in the camera and try again.", true);
+        return;
+      }
+      if (faceCount && faceCount > 1) {
+        setStatus("Multiple faces detected. Ensure only your face is visible.", true);
+        return;
+      }
 
       canvas.toBlob(function (blob) {
         if (!blob) {
